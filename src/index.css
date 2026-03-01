@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #0A0F1E;
+  font-family: 'Exo 2', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(55,181,233,0.3); border-radius: 2px; }
+
+.glass {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.glass-strong {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.grad-text {
+  background: linear-gradient(135deg, #37B5E9, #4B4BED);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gold-text {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-grad {
+  background: linear-gradient(135deg, #37B5E9, #4B4BED);
+  transition: opacity 0.2s, transform 0.1s;
+}
+.btn-grad:active { transform: scale(0.95); opacity: 0.85; }
+.btn-grad:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.pp-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-family: 'Exo 2', sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 16px;
+}
+.pp-input:focus {
+  outline: none;
+  border-color: #37B5E9;
+  box-shadow: 0 0 0 3px rgba(55,181,233,0.15);
+}
+.pp-input::placeholder { color: rgba(255,255,255,0.3); }
+
+button { user-select: none; -webkit-user-select: none; }
+
+/* RTL — flip directional icons (chevrons, arrows) */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Hebrew font */
+[dir="rtl"] body {
+  font-family: 'Heebo', system-ui, sans-serif;
+}
