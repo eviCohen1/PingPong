@@ -79,8 +79,8 @@ export default function Games() {
 
                   <div className="glass rounded-2xl overflow-hidden">
                     {[...live, ...pending, ...done].map((match, idx, arr) => {
-                      const p1 = getPlayerById(match.player1Id)
-                      const p2 = getPlayerById(match.player2Id)
+                      const p1 = tn.players.find((p) => p.id === match.player1Id) || getPlayerById(match.player1Id)
+                      const p2 = tn.players.find((p) => p.id === match.player2Id) || getPlayerById(match.player2Id)
                       const isLive = match.status === 'in_progress'
                       const isDone = match.status === 'completed'
 

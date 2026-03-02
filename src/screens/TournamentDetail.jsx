@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Trophy, Zap, Clock, CheckCircle, ChevronRight, BarChart3 } from 'lucide-react'
+import { ChevronLeft, Trophy, Zap, Clock, CheckCircle, ChevronRight, BarChart3, Plus, X } from 'lucide-react'
 import { useGame } from '../store/GameContext'
 import { useLang } from '../store/LangContext'
 import Layout from '../components/Layout'
@@ -118,9 +119,13 @@ function MatchCard({ match, p1, p2, onClick, index }) {
 
 export default function TournamentDetail() {
   const { id } = useParams()
-  const { getTournament, getPlayerById } = useGame()
+  const { getTournament, getPlayerById, addMatch } = useGame()
   const { t } = useLang()
   const navigate = useNavigate()
+
+  const [showAddMatch, setShowAddMatch] = useState(false)
+  const [sel1, setSel1] = useState(null)
+  const [sel2, setSel2] = useState(null)
 
   const tn = getTournament(id)
   if (!tn) return (
@@ -163,13 +168,22 @@ export default function TournamentDetail() {
               {t('tournamentDetail.roundRobin', { count: tn.players.length })}
             </p>
           </div>
-          <button
-            onClick={() => navigate(`/tournament/${id}/leaderboard`)}
-            className="p-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(135deg,rgba(55,181,233,0.25),rgba(75,75,237,0.25))', border: '1px solid rgba(55,181,233,0.3)' }}
-          >
-            <BarChart3 size={16} className="text-[#37B5E9]" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddMatch(true)}
+              className="p-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg,rgba(55,181,233,0.25),rgba(75,75,237,0.25))', border: '1px solid rgba(55,181,233,0.3)' }}
+            >
+              <Plus size={16} className="text-[#37B5E9]" />
+            </button>
+            <button
+              onClick={() => navigate(`/tournament/${id}/leaderboard`)}
+              className="p-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg,rgba(55,181,233,0.25),rgba(75,75,237,0.25))', border: '1px solid rgba(55,181,233,0.3)' }}
+            >
+              <BarChart3 size={16} className="text-[#37B5E9]" />
+            </button>
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -310,6 +324,101 @@ export default function TournamentDetail() {
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      {/* Add Match modal */}
+      {showAddMatch && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center pb-8 px-5"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowAddMatch(false); setSel1(null); setSel2(null) } }}
+        >
+          <div className="glass rounded-3xl p-6 w-full max-w-sm">
+            {/* Title row */}
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-black text-lg" style={{ fontFamily: "'Rajdhani',sans-serif" }}>
+                {t('tournamentDetail.addMatchTitle')}
+              </h3>
+              <button
+                onClick={() => { setShowAddMatch(false); setSel1(null); setSel2(null) }}
+                className="p-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Player 1 picker */}
+            <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+              {t('tournamentDetail.addMatchPlayer1')}
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {tn.players.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSel1(p.id)}
+                  disabled={p.id === sel2}
+                  className="px-3 py-1.5 rounded-xl text-sm font-semibold transition-all"
+                  style={
+                    sel1 === p.id
+                      ? { background: 'linear-gradient(135deg,#37B5E9,#4B4BED)', color: 'white' }
+                      : p.id === sel2
+                      ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+                      : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }
+                  }
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Player 2 picker */}
+            <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+              {t('tournamentDetail.addMatchPlayer2')}
+            </p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {tn.players.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSel2(p.id)}
+                  disabled={p.id === sel1}
+                  className="px-3 py-1.5 rounded-xl text-sm font-semibold transition-all"
+                  style={
+                    sel2 === p.id
+                      ? { background: 'linear-gradient(135deg,#37B5E9,#4B4BED)', color: 'white' }
+                      : p.id === sel1
+                      ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+                      : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }
+                  }
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowAddMatch(false); setSel1(null); setSel2(null) }}
+                className="flex-1 py-3 rounded-xl bg-white/10 text-white font-bold"
+              >
+                {t('tournamentDetail.addMatchCancel')}
+              </button>
+              <button
+                disabled={!sel1 || !sel2}
+                onClick={() => {
+                  addMatch(id, sel1, sel2)
+                  setShowAddMatch(false)
+                  setSel1(null)
+                  setSel2(null)
+                }}
+                className="flex-1 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg,#37B5E9,#4B4BED)' }}
+              >
+                <Plus size={16} /> {t('tournamentDetail.addMatchBtn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, X, Phone, User, Trophy } from 'lucide-react'
+import { ChevronLeft, Plus, X, Phone, User, Trophy, Search, UserCheck } from 'lucide-react'
 import { useGame } from '../store/GameContext'
 import { useLang } from '../store/LangContext'
+import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
 export default function CreateTournament() {
@@ -14,24 +15,60 @@ export default function CreateTournament() {
   const [players, setPlayers] = useState(
     currentPlayer ? [{ id: currentPlayer.id, name: currentPlayer.name, phone: currentPlayer.phone }] : [],
   )
-  const [pName, setPName] = useState('')
+  const [pName, setPName]   = useState('')
   const [pPhone, setPPhone] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError]   = useState('')
   const [pError, setPError] = useState('')
 
-  function addPlayer(e) {
+  const [registeredPlayers, setRegisteredPlayers] = useState([])
+  const [playerSearch, setPlayerSearch]           = useState('')
+  const [lookingUp, setLookingUp]                 = useState(false)
+
+  // Fetch all registered players from Supabase on mount
+  useEffect(() => {
+    supabase.from('players').select().then(({ data }) => {
+      if (data) setRegisteredPlayers(data)
+    })
+  }, [])
+
+  // Registered players not yet in the list (excluding current user)
+  const availableRegistered = registeredPlayers.filter((p) => {
+    if (p.id === currentPlayer?.id) return false
+    if (players.find((added) => added.id === p.id || added.phone === p.phone)) return false
+    if (playerSearch === '') return true
+    const q = playerSearch.toLowerCase()
+    return p.name.toLowerCase().includes(q) || p.phone.includes(playerSearch.replace(/\D/g, ''))
+  })
+
+  function addRegisteredPlayer(p) {
+    setPlayers((prev) => [...prev, { id: p.id, name: p.name, phone: p.phone }])
+    setPlayerSearch('')
+  }
+
+  async function addPlayer(e) {
     e.preventDefault()
     const cleaned = pPhone.replace(/\D/g, '')
     if (!pName.trim()) { setPError(t('create.errorName')); return }
     if (cleaned.length < 7) { setPError(t('create.errorPhone')); return }
     if (players.find((p) => p.phone === cleaned)) { setPError(t('create.errorDuplicate')); return }
     setPError('')
-    setPlayers((prev) => [
-      ...prev,
-      { id: `tmp-${Date.now()}`, name: pName.trim(), phone: cleaned },
-    ])
-    setPName('')
-    setPPhone('')
+    setLookingUp(true)
+    try {
+      // Check Supabase — if the phone belongs to a registered player, use their real ID
+      const { data: existing } = await supabase
+        .from('players')
+        .select()
+        .eq('phone', cleaned)
+        .maybeSingle()
+      const playerToAdd = existing
+        ? { id: existing.id, name: existing.name, phone: existing.phone }
+        : { id: `tmp-${Date.now()}`, name: pName.trim(), phone: cleaned }
+      setPlayers((prev) => [...prev, playerToAdd])
+      setPName('')
+      setPPhone('')
+    } finally {
+      setLookingUp(false)
+    }
   }
 
   function removePlayer(idx) {
@@ -99,7 +136,7 @@ export default function CreateTournament() {
             </span>
           </div>
 
-          {/* Player list */}
+          {/* Added player list */}
           {players.length > 0 && (
             <div className="space-y-2 mb-4">
               {players.map((p, i) => (
@@ -134,7 +171,58 @@ export default function CreateTournament() {
             </div>
           )}
 
-          {/* Add player form */}
+          {/* ── Registered players picker ── */}
+          <div className="mb-4">
+            <p className="text-white/40 text-xs font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+              <UserCheck size={12} />
+              {t('create.pickPlayerSection')}
+            </p>
+
+            {/* Search */}
+            <div className="relative mb-2">
+              <Search size={13} className="absolute start-3 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                type="text"
+                className="pp-input ps-8 text-sm"
+                placeholder={t('create.searchPlaceholder')}
+                value={playerSearch}
+                onChange={(e) => setPlayerSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Available registered players */}
+            {availableRegistered.length > 0 ? (
+              <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                {availableRegistered.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => addRegisteredPlayer(p)}
+                    className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 active:bg-white/15 rounded-xl px-3 py-2 transition-colors text-left"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg,rgba(55,181,233,0.35),rgba(75,75,237,0.35))' }}
+                    >
+                      {p.name[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">{p.name}</p>
+                      <p className="text-white/30 text-xs" dir="ltr">{p.phone}</p>
+                    </div>
+                    <Plus size={14} className="text-[#37B5E9] flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-white/25 text-xs text-center py-2">
+                {registeredPlayers.length === 0
+                  ? t('create.noRegistered')
+                  : t('create.allAdded')}
+              </p>
+            )}
+          </div>
+
+          {/* ── Manual add (new / unregistered player) ── */}
           <div
             className="rounded-xl p-4"
             style={{ background: 'rgba(55,181,233,0.05)', border: '1px dashed rgba(55,181,233,0.2)' }}
@@ -167,9 +255,10 @@ export default function CreateTournament() {
               {pError && <p className="text-red-400 text-xs">{pError}</p>}
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl border border-dashed border-white/20 text-white/60 text-sm font-semibold flex items-center justify-center gap-1.5 hover:border-white/40 hover:text-white/80 transition-colors"
+                disabled={lookingUp}
+                className="w-full py-2.5 rounded-xl border border-dashed border-white/20 text-white/60 text-sm font-semibold flex items-center justify-center gap-1.5 hover:border-white/40 hover:text-white/80 transition-colors disabled:opacity-50"
               >
-                <Plus size={16} /> {t('create.addPlayerBtn')}
+                <Plus size={16} /> {lookingUp ? '…' : t('create.addPlayerBtn')}
               </button>
             </form>
           </div>

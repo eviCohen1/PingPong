@@ -77,13 +77,30 @@ export function GameProvider({ children }) {
       })
 
       // 2. Fetch all tournaments this player is in from Supabase
-      const { data: rows } = await supabase
-        .from('tournaments')
-        .select('data')
-        .filter('data->players', 'cs', JSON.stringify([{ id: player.id }]))
+      // Query by player ID, and also by phone (covers tmp- players added manually)
+      const [{ data: byId }, { data: byPhone }] = await Promise.all([
+        supabase
+          .from('tournaments')
+          .select('data')
+          .filter('data', 'cs', JSON.stringify({ players: [{ id: player.id }] })),
+        supabase
+          .from('tournaments')
+          .select('data')
+          .filter('data', 'cs', JSON.stringify({ players: [{ phone: player.phone }] })),
+      ])
 
-      if (rows?.length) {
-        setTournaments(rows.map((r) => r.data))
+      const allRemote = [...(byId || []), ...(byPhone || [])]
+      if (allRemote.length) {
+        // Deduplicate by tournament ID
+        const remoteMap = new Map(
+          allRemote.map((r) => r.data).filter(Boolean).map((t) => [t.id, t])
+        )
+        // Merge: Supabase wins for any tournament ID that appears in both
+        setTournaments((prev) => {
+          const localMap = new Map(prev.map((t) => [t.id, t]))
+          remoteMap.forEach((t, id) => localMap.set(id, t))
+          return Array.from(localMap.values())
+        })
       }
 
       return player
@@ -153,15 +170,32 @@ export function GameProvider({ children }) {
         const updated = { ...t, matches, status: allDone ? 'completed' : t.status }
 
         // Sync updated tournament to Supabase
-        supabase
-          .from('tournaments')
-          .update({ data: updated, updated_at: new Date().toISOString() })
-          .eq('id', tournamentId)
-          .then()
+        supabase.from('tournaments').upsert({ id: tournamentId, data: updated }).then()
 
         return updated
       }),
     )
+  }
+
+  /** Add an extra match between any two tournament players */
+  function addMatch(tournamentId, player1Id, player2Id) {
+    const newMatch = {
+      id: genId('m'),
+      player1Id,
+      player2Id,
+      games: [],
+      winner: null,
+      status: 'pending',
+    }
+    setTournaments((prev) =>
+      prev.map((t) => {
+        if (t.id !== tournamentId) return t
+        const updated = { ...t, matches: [...t.matches, newMatch] }
+        supabase.from('tournaments').upsert({ id: tournamentId, data: updated }).then()
+        return updated
+      })
+    )
+    return newMatch
   }
 
   /** Compute leaderboard for a tournament, sorted by match wins then point diff */
@@ -223,7 +257,12 @@ export function GameProvider({ children }) {
     return t ? t.matches.find((m) => m.id === matchId) || null : null
   }
   function getPlayerById(id) {
-    // check tournament players first, then global players
+    // check each tournament's players array first (covers tmp- players added manually)
+    for (const t of tournaments) {
+      const found = t.players.find((p) => p.id === id)
+      if (found) return found
+    }
+    // fall back to global players list
     let allPlayers = []
     try { allPlayers = JSON.parse(localStorage.getItem('pp_players') || '[]') } catch {}
     return allPlayers.find((p) => p.id === id) || players.find((p) => p.id === id) || null
@@ -240,6 +279,7 @@ export function GameProvider({ children }) {
         tournaments,
         createTournament,
         updateMatch,
+        addMatch,
         getLeaderboard,
         getTournament,
         getMatch,
